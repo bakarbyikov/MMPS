@@ -1,6 +1,6 @@
 from functools import partial, reduce
 from itertools import chain, repeat
-from math import dist
+from math import dist, sqrt
 from operator import add, mul, sub, truediv
 from random import random, randrange, seed
 from typing import Any, Callable, Generator, Self, Sequence
@@ -29,7 +29,7 @@ class Row(list):
         return max(map(abs, self))
     
     def norm_two(self) -> Any:
-        return dist(self, repeat(0))
+        return sqrt(sum(s**2 for s in self))
     
     def residual(self, other: Self) -> Self:
         return Row(self - other)
@@ -140,6 +140,18 @@ class Matrix:
         self.transpose()
         res = reduce(mul, list(self._gaussian_forward()))
         return res
+    
+    def norm_one(self) -> Any:
+        return max(map(Row.norm_one, self.T()))
+    
+    def norm_inf(self) -> Any:
+        return max(map(Row.norm_one, self))
+    
+    def norm_F(self) -> Any:
+        return sqrt(sum(s**2 for s in chain(*self)))
+    
+    def norm_M(self) -> Any:
+        return self.height * max(map(abs, chain(*self)))
 
 if __name__ == "__main__":
     print("Исходные данные")
@@ -192,3 +204,10 @@ if __name__ == "__main__":
     print("Произведение матриц")
     print(invertible @ A)
 
+
+
+    print("Число обусловленности")
+    names = ["Норма 1", "Норма ∞", "Норма Фробениуса", "Максимальная норма"]
+    funcs = [Matrix.norm_one, Matrix.norm_inf, Matrix.norm_F, Matrix.norm_M]
+    for name, func in zip(names, funcs):
+        print(f"{name:>18}: {func(A)*func(invertible):.15f}", )
