@@ -13,26 +13,26 @@ class TestStringMethods(unittest.TestCase):
     def test_zeros(self):
         m = Matrix.zeros(2, 3)
         string = (
-            "[0, 0, 0]\n"
-            "[0, 0, 0]"
+            "[ 0.00,  0.00,  0.00]\n"
+            "[ 0.00,  0.00,  0.00]"
         )
         self.assertEqual(str(m), string)
     
     def test_ones(self):
         m = Matrix.ones(3, 2)
         string = (
-            "[1, 1]\n"
-            "[1, 1]\n"
-            "[1, 1]"
+            "[ 1.00,  1.00]\n"
+            "[ 1.00,  1.00]\n"
+            "[ 1.00,  1.00]"
         )
         self.assertEqual(str(m), string)
     
     def test_full(self):
         m = Matrix.full(float, 3, 3)
         string = (
-            "[0.0, 0.0, 0.0]\n"
-            "[0.0, 0.0, 0.0]\n"
-            "[0.0, 0.0, 0.0]"
+            "[ 0.00,  0.00,  0.00]\n"
+            "[ 0.00,  0.00,  0.00]\n"
+            "[ 0.00,  0.00,  0.00]"
         )
         self.assertEqual(str(m), string)
     
@@ -40,9 +40,9 @@ class TestStringMethods(unittest.TestCase):
         seed(0)
         m = Matrix.randint(3, 3, 10)
         string = (
-            "[6, 6, 0]\n"
-            "[4, 8, 7]\n"
-            "[6, 4, 7]"
+            "[ 6.00,  6.00,  0.00]\n"
+            "[ 4.00,  8.00,  7.00]\n"
+            "[ 6.00,  4.00,  7.00]"
         )
         self.assertEqual(str(m), string)
         
@@ -50,9 +50,9 @@ class TestStringMethods(unittest.TestCase):
         seed(0)
         m = Matrix.random(3, 3)
         string = (
-            "[0.8444218515250481, 0.7579544029403025, 0.420571580830845]\n"
-            "[0.25891675029296335, 0.5112747213686085, 0.4049341374504143]\n"
-            "[0.7837985890347726, 0.30331272607892745, 0.4765969541523558]"
+            "[ 0.84,  0.76,  0.42]\n"
+            "[ 0.26,  0.51,  0.40]\n"
+            "[ 0.78,  0.30,  0.48]"
         )
         self.assertEqual(str(m), string)
     
@@ -72,15 +72,29 @@ class TestStringMethods(unittest.TestCase):
         seed(0)
         m = Matrix.randint(2, 2, 10)
         self.assertEqual(str(m), (
-            "[6, 6]\n"
-            "[0, 4]"
+            "[ 6.00,  6.00]\n"
+            "[ 0.00,  4.00]"
         ))
         before = m[0]
         m[0] /= 2
         self.assertIs(before, m[0])
         self.assertEqual(str(m), (
-            "[3.0, 3.0]\n"
-            "[0, 4]"
+            "[ 3.00,  3.00]\n"
+            "[ 0.00,  4.00]"
+        ))
+    
+    def test_transpose(self):
+        seed(0)
+        m = Matrix.randint(2, 3, 10)
+        self.assertEqual(str(m), (
+            "[ 6.00,  6.00,  0.00]\n"
+            "[ 4.00,  8.00,  7.00]"
+        ))
+        m.transpose()
+        self.assertEqual(str(m), (
+            "[ 6.00,  4.00]\n"
+            "[ 6.00,  8.00]\n"
+            "[ 0.00,  7.00]"
         ))
         
 
