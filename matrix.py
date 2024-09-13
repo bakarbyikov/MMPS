@@ -204,8 +204,6 @@ if __name__ == "__main__":
     print("Произведение матриц")
     print(invertible @ A)
 
-
-
     print("Число обусловленности")
     names = ["Норма 1", "Норма ∞", "Норма Фробениуса", "Максимальная норма"]
     funcs = [Matrix.norm_one, Matrix.norm_inf, Matrix.norm_F, Matrix.norm_M]
