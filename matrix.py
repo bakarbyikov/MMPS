@@ -1,10 +1,12 @@
 from functools import partial, reduce
-from itertools import chain, repeat
-from math import dist, sqrt
+from itertools import chain, count, repeat
+from math import sqrt
 from operator import add, mul, sub, truediv
-from random import random, randrange, seed
-from typing import Any, Callable, Generator, Self, Sequence
+from random import random, randrange
+from typing import Any, Callable, Generator, Iterable, Self, Sequence
 
+def argmax(something: Iterable) -> int:
+    return max(zip(something, count()))[-1]
 
 class Row(list):
     def __truediv__(self, value: Any) -> Generator[Any, None, None]:
@@ -12,6 +14,9 @@ class Row(list):
     
     def __mul__(self, value: Any) -> Generator[Any, None, None]:
         return map(mul, self, repeat(value))
+    
+    def __add__(self, value: Self) -> Self:
+        return Row(map(add, self, value))
     
     def __sub__(self, value: Sequence[Any]) -> Generator[Any, None, None]:
         return map(sub, self, value)
@@ -113,25 +118,41 @@ class Matrix:
     def get_right_half(self) -> Self:
         return Matrix([row[self.width//2:] for row in self])
     
+    def get_column(self, index: int) -> Row:
+        return Row(row[index] for row in self)
+    
     def fit(self, nums: Sequence[Any]) -> Row:
         return Row(sum(map(mul, row, nums)) for row in self)
     
     def _gaussian_forward(self) -> Generator[Any, None, None]:
-        for i in range(self.height):
-            yield self[i][i]
-            self[i] /= self[i][i]
-            for ii in range(i+1, self.height):
-                self[ii] -= self[i] * self[ii][i]
+        for row in range(self.height):
+            yield self[row][row]
+            self[row] /= self[row][row]
+            for below in range(row+1, self.height):
+                self[below] -= self[row] * self[below][row]
     def gaussian_forward(self):
         all(self._gaussian_forward())
+        
+    def solve_gaussian_choose(self):
+        for column in range(self.height):
+            choosen = argmax(self.get_column(column)[column:]) + column
+            self.swap(column, choosen)
+            self[column] /= self[column][column]
+            for below in range(column+1, self.height):
+                self[below] -= self[column] * self[below][column]
+        self.gaussian_reverse()
+        return self.get_vector_b()
+    
+    def swap(self, first: int, second: int):
+        self.rows[first], self.rows[second] = self.rows[second], self.rows[first]
     
     def gaussian_reverse(self):
-        for i in reversed(range(self.height)):
-            for ii in range(i):
-                self[ii] -= self[i] * self[ii][i]
+        for row in reversed(range(self.height)):
+            for above in range(row):
+                self[above] -= self[row] * self[above][row]
     
     def solve_gaussian_single(self):
-        """метод Гаусса (схему единственного деления)"""
+        """метод Гаусса (схема единственного деления)"""
         self.gaussian_forward()
         self.gaussian_reverse()
         return self.get_vector_b()
@@ -154,13 +175,18 @@ class Matrix:
         return self.height * max(map(abs, chain(*self)))
 
 if __name__ == "__main__":
-    print("Исходные данные")
+    print("Матрица коэфицентов системы")
     A = [[2.18, 2.44, 2.49],
          [2.17, 2.31, 2.49],
          [3.15, 3.22, 3.17],]
-    b = [-4.34, -3.91, -5.27]
     A = Matrix(A)
+    print(A)
+    
+    print("Столбец свободных членоы")
+    b = [-4.34, -3.91, -5.27]
     b = Row(b)
+    print(b)
+    
     print("Расширенная матрица")
     matrix = Matrix.augmented(A, b)
     print(matrix)
@@ -186,6 +212,13 @@ if __name__ == "__main__":
     print("Норма1 ветора невязки")
     print(residual.norm_one())
     
+    print("Для метода выбора ведущего элемента")
+    matrix = Matrix.augmented(A, b)
+    matrix.solve_gaussian_choose()
+    got = A.fit(matrix.get_vector_b())
+    residual = b.residual(got)
+    print(residual.norm_one())
+    
     print("Определитель")
     print(Matrix(A).find_determinant())
     
@@ -209,3 +242,15 @@ if __name__ == "__main__":
     funcs = [Matrix.norm_one, Matrix.norm_inf, Matrix.norm_F, Matrix.norm_M]
     for name, func in zip(names, funcs):
         print(f"{name:>18}: {func(A)*func(invertible):.15f}", )
+    
+    print("Вектор относительных погрешностей решения")
+    delta_b = Row([0, 1, 0])
+    wrong_b = b + delta_b
+    exact = Matrix.augmented(A, b).solve_gaussian_single()
+    wrong = Matrix.augmented(A, wrong_b).solve_gaussian_single()
+    print(wrong.norm_one() / exact.norm_one())
+    
+    print("Теоретическая относительная погрешность")
+    condition_number = A.norm_one() * invertible.norm_one()
+    print(delta_b.norm_one() / b.norm_one() * condition_number)
+    
