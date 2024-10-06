@@ -1,52 +1,22 @@
-from functools import partial, reduce
-from itertools import chain, count, repeat
+from functools import partial
+from itertools import chain, repeat
 from math import sqrt
-from operator import add, mul, sub, truediv
+from numbers import Real
+from operator import mul, sub
 from random import random, randrange
-from typing import Any, Callable, Generator, Iterable, Self, Sequence
+from typing import Callable, Self, Sequence
 
-def argmax(something: Iterable) -> int:
-    return max(zip(something, count()))[-1]
+from row import Row
 
-class Row(list):
-    def __truediv__(self, value: Any) -> Generator[Any, None, None]:
-        return map(truediv, self, repeat(value))
-    
-    def __mul__(self, value: Any) -> Generator[Any, None, None]:
-        return map(mul, self, repeat(value))
-    
-    def __add__(self, value: Self) -> Self:
-        return Row(map(add, self, value))
-    
-    def __sub__(self, value: Sequence[Any]) -> Generator[Any, None, None]:
-        return map(sub, self, value)
-    
-    def __str__(self) -> str:
-        return f"[{', '.join(map('{:>5.2f}'.format, self))}]"
-    
-    def __matmul__(self, other: Self) -> Any:
-        return sum(map(mul, self, other))
-    
-    def norm_one(self) -> Any:
-        return sum(map(abs, self))
-    
-    def norm_inf(self) -> Any:
-        return max(map(abs, self))
-    
-    def norm_two(self) -> Any:
-        return sqrt(sum(s**2 for s in self))
-    
-    def residual(self, other: Self) -> Self:
-        return Row(self - other)
-    
+
 class Matrix:
-    def __init__(self, rows: list[list[Any]]) -> None:
+    def __init__(self, rows: list[list[Real]]) -> None:
         self.height = len(rows)
         self.width = len(rows[0])
         self.rows = [Row(r) for r in rows]
         
     @classmethod
-    def full(cls, filler: Callable[[], Any], height: int, width: int) -> Self:
+    def full(cls, filler: Callable[[], Real], height: int, width: int) -> Self:
         if height <= 0 or width <= 0:
             raise NotImplementedError(
                 "Don't do this! Why do you want matrix "
@@ -85,19 +55,49 @@ class Matrix:
             res[i][i] = 1
         return res
     
+    def __rmul__(self, other: Real) -> Self:
+        return Matrix(list(map(mul, self, repeat(other))))
+    
+    def __sub__(self, other: Real) -> Self:
+        return Matrix(list(map(sub, self, other)))
+    
+    def __format__(self, format_spec: str) -> str:
+        if format_spec.endswith('m'):
+            ndigits = int(format_spec[:-1])
+            return self.str_round(ndigits)
+        return "\n".join(map(format, self.rows, repeat(format_spec)))
+    
+    def str_round(self, ndigits: int) -> str:
+        return format(self, f">{ndigits+3}.{ndigits}f")
+    
     def __str__(self) -> str:
-        return "\n".join(map(str, self.rows))
+        result = [row.danil() for row in self.T()]
+        return "\n".join(f"[{' '.join(row)}]" for row in zip(*result))
+        self.T()
+        lines = [[format(cell, ' g') for cell in row] for row in self]
+        result = list()
+        for column in zip(*lines):
+            column: list[str]
+            mixim = 0, 0
+            for value in column:
+                left, _, right = value.partition('.')
+                mixim = map(max, mixim, map(len, (left, right)))
+            for value in column:
+                left, _, right = map(len, value.partition('.'))
+                result[-1].append(value.ljust)
+                
+        return '\n'.join(map(' '.join, zip(*result)))
     
     def __getitem__(self, index: int) -> Row:
         return self.rows[index]
     
-    def __setitem__(self, index: int, value: Sequence[Any]):
+    def __setitem__(self, index: int, value: Sequence[Real]):
         self.rows[index][:] = value
     
     def __len__(self) -> int:
         return self.height
     
-    def __matmul__(self, other: Self) -> Self:
+    def __matmul(self, other: Self) ->Self:
         other = other.T()
         res = list()
         for row in self:
@@ -105,6 +105,11 @@ class Matrix:
             for column in other:
                 res[-1].append(row @ column)
         return Matrix(res)
+    
+    def __matmul__(self, other: Self|Row) -> Self|Row:
+        if isinstance(other, Matrix):
+            return self.__matmul(other)
+        return self.__matmul(Matrix([other])).get_vector_b()
     
     def T(self):
         return Matrix(list(map(Row, zip(*self))))
@@ -121,136 +126,41 @@ class Matrix:
     def get_column(self, index: int) -> Row:
         return Row(row[index] for row in self)
     
-    def fit(self, nums: Sequence[Any]) -> Row:
-        return Row(sum(map(mul, row, nums)) for row in self)
+    def get_coef_a(self) -> Self:
+        return Matrix([row[:-1] for row in self])
     
-    def _gaussian_forward(self) -> Generator[Any, None, None]:
-        for row in range(self.height):
-            yield self[row][row]
-            self[row] /= self[row][row]
-            for below in range(row+1, self.height):
-                self[below] -= self[row] * self[below][row]
-    def gaussian_forward(self):
-        all(self._gaussian_forward())
-        
-    def solve_gaussian_choose(self):
-        for column in range(self.height):
-            choosen = argmax(self.get_column(column)[column:]) + column
-            self.swap(column, choosen)
-            self[column] /= self[column][column]
-            for below in range(column+1, self.height):
-                self[below] -= self[column] * self[below][column]
-        self.gaussian_reverse()
-        return self.get_vector_b()
+    def deaug(self) -> tuple[Self, Row]:
+        return self.get_coef_a(), self.get_vector_b()
+    
+    def fit(self, nums: Sequence[Real]) -> Row:
+        return Row(sum(map(mul, row, nums)) for row in self)
     
     def swap(self, first: int, second: int):
         self.rows[first], self.rows[second] = self.rows[second], self.rows[first]
     
-    def gaussian_reverse(self):
-        for row in reversed(range(self.height)):
-            for above in range(row):
-                self[above] -= self[row] * self[above][row]
-    
-    def solve_gaussian_single(self):
-        """метод Гаусса (схема единственного деления)"""
-        self.gaussian_forward()
-        self.gaussian_reverse()
-        return self.get_vector_b()
-    
-    def find_determinant(self) -> Any:
-        self.transpose()
-        res = reduce(mul, list(self._gaussian_forward()))
-        return res
-    
-    def norm_one(self) -> Any:
+    def norm_one(self) -> Real:
         return max(map(Row.norm_one, self.T()))
     
-    def norm_inf(self) -> Any:
+    def norm_inf(self) -> Real:
         return max(map(Row.norm_one, self))
     
-    def norm_F(self) -> Any:
+    def norm_F(self) -> Real:
         return sqrt(sum(s**2 for s in chain(*self)))
     
-    def norm_M(self) -> Any:
+    def norm_M(self) -> Real:
         return self.height * max(map(abs, chain(*self)))
-
+    
+    def copy(self) -> Self:
+        return Matrix(self)
+    
+    def to_iter_form(self) -> Self:
+        result = self.copy()
+        for i in range(self.height):
+            result[i] /= -self[i][i]
+            result[i][i] = 0
+            result[i][-1] *= -1
+        return result
+    
 if __name__ == "__main__":
-    print("Матрица коэфицентов системы")
-    A = [[2.18, 2.44, 2.49],
-         [2.17, 2.31, 2.49],
-         [3.15, 3.22, 3.17],]
-    A = Matrix(A)
-    print(A)
-    
-    print("Столбец свободных членоы")
-    b = [-4.34, -3.91, -5.27]
-    b = Row(b)
-    print(b)
-    
-    print("Расширенная матрица")
-    matrix = Matrix.augmented(A, b)
-    print(matrix)
-
-    print("После прямого прохода")
-    matrix.gaussian_forward()
-    print(matrix)
-
-    print("После обратного прохода")
-    matrix.gaussian_reverse()
-    print(matrix)
-
-    print("Вектор x")
-    res = matrix.get_vector_b()
-    print(res)
-
-    print("Вектор невязки")
-    got = A.fit(res)
-    expected = b
-    residual = expected.residual(got)
-    print(residual)
-    
-    print("Норма1 ветора невязки")
-    print(residual.norm_one())
-    
-    print("Для метода выбора ведущего элемента")
-    matrix = Matrix.augmented(A, b)
-    matrix.solve_gaussian_choose()
-    got = A.fit(matrix.get_vector_b())
-    residual = b.residual(got)
-    print(residual.norm_one())
-    
-    print("Определитель")
-    print(Matrix(A).find_determinant())
-    
-    print("Единичная матрица")
-    matrix = Matrix.concat(A, Matrix.one(A.height))
-    print(matrix)
-    
-    print("После преобразований")
-    matrix.solve_gaussian_single()
-    print(matrix)
-    
-    print("Обратная матрица")
-    invertible = matrix.get_right_half()
-    print(invertible)
-    
-    print("Произведение матриц")
-    print(invertible @ A)
-
-    print("Число обусловленности")
-    names = ["Норма 1", "Норма ∞", "Норма Фробениуса", "Максимальная норма"]
-    funcs = [Matrix.norm_one, Matrix.norm_inf, Matrix.norm_F, Matrix.norm_M]
-    for name, func in zip(names, funcs):
-        print(f"{name:>18}: {func(A)*func(invertible):.15f}", )
-    
-    print("Вектор относительных погрешностей решения")
-    delta_b = Row([0, 1, 0])
-    wrong_b = b + delta_b
-    exact = Matrix.augmented(A, b).solve_gaussian_single()
-    wrong = Matrix.augmented(A, wrong_b).solve_gaussian_single()
-    print(wrong.norm_one() / exact.norm_one())
-    
-    print("Теоретическая относительная погрешность")
-    condition_number = A.norm_one() * invertible.norm_one()
-    print(delta_b.norm_one() / b.norm_one() * condition_number)
-    
+    mat = Matrix.random(3, 3)
+    print(mat)
