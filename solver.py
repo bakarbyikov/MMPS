@@ -47,23 +47,37 @@ def find_determinant(matrix: Matrix) -> Real:
 
 
 def solve_iter(matrix: Matrix, eps: float) -> tuple[Row, int]:
+    q = matrix.get_coef_a().norm_one()
+    eps *= (1-q)/q
     answer = matrix.get_vector_b()
     for n_iter in count(1):
         new_answer = (matrix.get_coef_a() @ answer) + matrix.get_vector_b()
         delta = new_answer - answer
         if (delta.norm_one() < eps):
-            break
+            return new_answer, n_iter
         answer = new_answer
-    return new_answer, n_iter
+    
 
 def solve_Seidel(matrix: Matrix, eps: float) -> tuple[Row, int]:
-    new_answer = answer = matrix.get_vector_b()
+    q = matrix.get_coef_a().norm_one()
+    eps *= (1-q)/q
+    answer = matrix.get_vector_b()
     for n_iter in count(1):
         new_answer = answer.copy()
         for i, row in enumerate(matrix):
             new_answer[i] = row.fit(new_answer)
         delta = new_answer - answer
         if (delta.norm_one() < eps):
-            break
+            return new_answer, n_iter
         answer = new_answer
-    return new_answer, n_iter
+
+if __name__ == "__main__":
+    mat = Matrix([
+        [ 0,          -0.00126667, -0.00163333, -0.00196667, 0.504533],
+        [-0.00052381,  0,          -0.00152381, -0.00204762, 0.703905],
+        [ 0.000416667,-0.000416667, 0,          -0.00216667, 0.9025  ],
+        [ 0.00733333,  0.00366667,  0.000333333, 0,          1.09333 ],
+    ])
+    res, n_iter = solve_iter(mat.as_fractions(), 1e-15)
+    print(type(res[0]))
+    print(res, n_iter)

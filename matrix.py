@@ -1,3 +1,4 @@
+from fractions import Fraction
 from functools import partial
 from itertools import chain, repeat
 from math import sqrt
@@ -54,6 +55,10 @@ class Matrix:
         for i in range(size):
             res[i][i] = 1
         return res
+    
+    def as_fractions(self) -> Self:
+        rows = [[Fraction.from_float(cell) for cell in row] for row in self]
+        return Matrix(rows)
     
     def __rmul__(self, other: Real) -> Self:
         return Matrix(list(map(mul, self, repeat(other))))
