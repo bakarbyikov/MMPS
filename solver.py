@@ -52,6 +52,12 @@ def find_determinant(matrix: Matrix) -> Real:
     return reduce(mul, list(_gaussian_forward(matrix)))
 
 
+def find_u(matrix: Matrix) -> Real:
+    n = matrix.height
+    return max((sum(map(abs, matrix[i][i:n])) /
+                (1 - sum(map(abs, matrix[i][:i])))) for i in range(n))
+
+
 def solve_iter(matrix: Matrix, eps: float) -> tuple[Row, int]:
     q = matrix.get_coef_a().norm_one()
     eps *= (1-q)/q
@@ -65,8 +71,8 @@ def solve_iter(matrix: Matrix, eps: float) -> tuple[Row, int]:
 
 
 def solve_Seidel(matrix: Matrix, eps: float) -> tuple[Row, int]:
-    q = matrix.get_coef_a().norm_one()
-    eps *= (1-q)/q
+    u = find_u(matrix)
+    eps *= (1-u)/u
     answer = matrix.get_vector_b()
     for n_iter in count(1):
         new_answer = answer.copy()
@@ -79,11 +85,10 @@ def solve_Seidel(matrix: Matrix, eps: float) -> tuple[Row, int]:
 
 
 if __name__ == "__main__":
-    mat = Matrix([
-        [0,          -0.00126667, -0.00163333, -0.00196667, 0.504533],
-        [-0.00052381,  0,          -0.00152381, -0.00204762, 0.703905],
-        [0.000416667, -0.000416667, 0,          -0.00216667, 0.9025],
-        [0.00733333,  0.00366667,  0.000333333, 0,          1.09333],
-    ])
-    res, n_iter = solve_iter(mat, 1e-15)
-    print(res)
+    mat = Matrix([[0,         -0.126667, -0.163333,  -0.196667,   50.4533],
+                  [-0.052381,  0,        -0.152381,  -0.204762,   70.3905],
+                  [0.0416667, -0.0416667, 0,         -0.216667,   90.25],
+                  [0.733333,   0.366667,  0.0333333,  0,         109.333]])
+    mat = mat.as_fractions()
+    print(solve_iter(mat, 1e-15))
+    print(solve_Seidel(mat, 1e-15))
